@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табель учёта</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Учёт прихода и ухода</h1>
+        
+        <form id="timesheetForm">
+            <div class="form-group">
+                <label for="employeeCode">Код сотрудника *</label>
+                <input 
+                    type="text" 
+                    id="employeeCode" 
+                    name="employeeCode" 
+                    required 
+                    placeholder="Введите код сотрудника"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="worksite">Участок (необязательно)</label>
+                <input 
+                    type="text" 
+                    id="worksite" 
+                    name="worksite" 
+                    placeholder="Например: Цех 1"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="button-group">
+                <button type="button" id="btnIn" class="btn btn-in">
+                    Приход
+                </button>
+                <button type="button" id="btnOut" class="btn btn-out">
+                    Уход
+                </button>
+            </div>
+
+            <div id="status" class="status"></div>
+        </form>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
