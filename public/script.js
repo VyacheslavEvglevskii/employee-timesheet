@@ -1,119 +1,148 @@
-const form = document.getElementById('timesheetForm');
-const employeeCodeInput = document.getElementById('employeeCode');
-const worksiteInput = document.getElementById('worksite');
+const elName = document.getElementById('employeeName');
+const elStatus = document.getElementById('employeeStatus');
+const elWorksite = document.getElementById('worksite');
+
 const btnIn = document.getElementById('btnIn');
 const btnOut = document.getElementById('btnOut');
-const statusDiv = document.getElementById('status');
 
-// Функция для отображения статуса
-function showStatus(message, isError = false) {
-    statusDiv.textContent = message;
-    statusDiv.className = 'status ' + (isError ? 'error' : 'success');
-    statusDiv.style.display = 'block';
-    
-    // Автоматически скрыть через 5 секунд
-    setTimeout(() => {
-        statusDiv.style.display = 'none';
-    }, 5000);
+const statusBox = document.getElementById('status');
+const geoState = document.getElementById('geoState');
+const nowClock = document.getElementById('nowClock');
+
+function setStatus(type, text) {
+  statusBox.className = 'status ' + (type === 'ok' ? 'ok' : 'err');
+  statusBox.textContent = text;
+  statusBox.style.display = 'block';
 }
 
-// Функция для получения геолокации
-function getGeolocation() {
-    return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-            resolve({ latitude: null, longitude: null, accuracy: null });
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy
-                });
-            },
-            (error) => {
-                console.warn('Геолокация недоступна:', error.message);
-                resolve({ latitude: null, longitude: null, accuracy: null });
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            }
-        );
-    });
+function clearStatus() {
+  statusBox.className = 'status';
+  statusBox.textContent = '';
+  statusBox.style.display = 'none';
 }
 
-// Функция для отправки данных на сервер
-async function sendMark(action) {
-    const employeeCode = employeeCodeInput.value.trim();
-    const worksite = worksiteInput.value.trim();
+function disableButtons(disabled) {
+  btnIn.disabled = disabled;
+  btnOut.disabled = disabled;
+}
 
-    if (!employeeCode) {
-        showStatus('Введите код сотрудника', true);
-        return;
-    }
+function isValid() {
+  if (!elName.value.trim()) return { ok: false, msg: 'Введите «Фамилия и Имя сотрудника».' };
+  if (!elStatus.value) return { ok: false, msg: 'Выберите «Статус».' };
+  if (!elWorksite.value) return { ok: false, msg: 'Выберите «Участок».' };
+  return { ok: true };
+}
 
-    // Показываем статус загрузки
-    btnIn.disabled = true;
-    btnOut.disabled = true;
-    showStatus('Получение геолокации...', false);
+// Попробуем сразу запросить геолокацию (мягко, без блокировки)
+let lastGeo = { latitude: '', longitude: '', accuracy: '' };
 
-    // Получаем геолокацию
-    const location = await getGeolocation();
+function requestGeoSilently() {
+  if (!navigator.geolocation) {
+    geoState.textContent = 'не поддерживается';
+    return;
+  }
+  geoState.textContent = 'запрос…';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      lastGeo = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy
+      };
+      geoState.textContent = 'получена';
+    },
+    () => {
+      geoState.textContent = 'нет доступа';
+    },
+    { enableHighAccuracy: true, timeout: 6000 }
+  );
+}
+requestGeoSilently();
 
-    showStatus('Отправка данных...', false);
+async function getGeoForMark() {
+  // используем уже полученную, если есть
+  if (lastGeo.latitude && lastGeo.longitude) return lastGeo;
 
-    // Подготовка данных
-    const data = {
-        employeeCode: employeeCode,
-        action: action,
-        worksite: worksite || undefined
+  // иначе попробуем запросить ещё раз (жёстче)
+  if (!navigator.geolocation) return { latitude: '', longitude: '', accuracy: '' };
+
+  geoState.textContent = 'запрос…';
+  return await new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const g = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        };
+        lastGeo = g;
+        geoState.textContent = 'получена';
+        resolve(g);
+      },
+      () => {
+        geoState.textContent = 'нет доступа';
+        resolve({ latitude: '', longitude: '', accuracy: '' });
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  });
+}
+
+async function mark(action) {
+  clearStatus();
+
+  const v = isValid();
+  if (!v.ok) {
+    setStatus('err', v.msg);
+    return;
+  }
+
+  disableButtons(true);
+
+  try {
+    const geo = await getGeoForMark();
+
+    const payload = {
+      employeeName: elName.value.trim(),
+      employeeStatus: elStatus.value,
+      action,
+      worksite: elWorksite.value,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      accuracy: geo.accuracy
     };
 
-    // Добавляем координаты, если они есть
-    if (location.latitude !== null && location.longitude !== null) {
-        data.latitude = location.latitude;
-        data.longitude = location.longitude;
-        data.accuracy = location.accuracy;
+    const resp = await fetch('/api/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      setStatus('err', data.message || 'Ошибка сохранения. Попробуйте ещё раз.');
+      return;
     }
 
-    try {
-        const response = await fetch('/api/mark', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'ok') {
-            showStatus(`✓ ${result.message}. Время: ${new Date(result.timestamp).toLocaleString('ru-RU')}`, false);
-            // Очищаем поля после успешной отправки
-            employeeCodeInput.value = '';
-            worksiteInput.value = '';
-        } else {
-            showStatus(`Ошибка: ${result.message}`, true);
-        }
-    } catch (error) {
-        console.error('Ошибка отправки:', error);
-        showStatus('Ошибка соединения с сервером', true);
-    } finally {
-        btnIn.disabled = false;
-        btnOut.disabled = false;
-    }
+    setStatus('ok', `✅ Отметка сохранена (${action === 'IN' ? 'ПРИХОД' : 'УХОД'}).`);
+  } catch (e) {
+    setStatus('err', 'Ошибка сети или сервера. Попробуйте ещё раз.');
+  } finally {
+    disableButtons(false);
+  }
 }
 
-// Обработчики кнопок
-btnIn.addEventListener('click', () => sendMark('IN'));
-btnOut.addEventListener('click', () => sendMark('OUT'));
+btnIn.addEventListener('click', () => mark('IN'));
+btnOut.addEventListener('click', () => mark('OUT'));
 
-// Предотвращаем отправку формы по Enter
-form.addEventListener('submit', (e) => {
-    e.preventDefault();
-});
-
+// Часы внизу (для спокойствия пользователей)
+function tickClock() {
+  const now = new Date();
+  nowClock.textContent = now.toLocaleString('ru-RU', {
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).replace(',', '');
+}
+tickClock();
+setInterval(tickClock, 1000);

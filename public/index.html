@@ -1,53 +1,294 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Табель учёта</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Учёт прихода и ухода</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f172a;
+      --card2:#111c33;
+      --text:#e5e7eb;
+      --muted:#a7b0c0;
+      --line:rgba(255,255,255,.08);
+
+      --green:#22c55e;
+      --green2:#16a34a;
+      --red:#ef4444;
+      --red2:#dc2626;
+
+      --amber:#f59e0b;
+      --shadow: 0 18px 50px rgba(0,0,0,.35);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(1000px 500px at 20% 10%, rgba(34,197,94,.15), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, rgba(239,68,68,.12), transparent 55%),
+        radial-gradient(700px 500px at 50% 90%, rgba(245,158,11,.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      padding:24px;
+    }
+
+    .wrap{
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:14px;
+    }
+
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    h1{
+      font-size: 22px;
+      line-height: 1.2;
+      margin:0;
+      letter-spacing: .2px;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+      margin:0;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--line);
+      color:var(--muted);
+      font-size: 12px;
+      white-space:nowrap;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .card-inner{
+      padding:16px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      margin-top: 10px;
+    }
+
+    @media(min-width:680px){
+      .grid{
+        grid-template-columns: 1.4fr 1fr 1fr;
+      }
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin:0 0 6px;
+    }
+
+    .field{
+      background: rgba(0,0,0,.25);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 12px;
+      color: var(--text);
+      outline: none;
+      width:100%;
+      font-size: 15px;
+      transition: .15s;
+    }
+    .field::placeholder{color: rgba(167,176,192,.65)}
+    .field:focus{
+      border-color: rgba(255,255,255,.22);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.16);
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button{
+      border:none;
+      border-radius: 14px;
+      padding: 14px 12px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor:pointer;
+      color:#0b1220;
+      transition: transform .06s ease, filter .15s ease, opacity .15s ease;
+      user-select:none;
+    }
+
+    button:active{ transform: translateY(1px); }
+    button:disabled{ opacity:.6; cursor:not-allowed; }
+
+    .btn-in{
+      background: linear-gradient(180deg, var(--green), var(--green2));
+    }
+    .btn-out{
+      background: linear-gradient(180deg, var(--red), var(--red2));
+      color: #fff;
+    }
+
+    .footer{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      padding: 14px 16px 16px;
+      border-top: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+    }
+
+    .tip{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.45;
+    }
+
+    .tip b{ color: #eab308; font-weight: 800; }
+
+    .status{
+      display:none;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-size: 13px;
+      line-height:1.4;
+      background: rgba(255,255,255,.04);
+    }
+    .status.ok{
+      display:block;
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.10);
+    }
+    .status.err{
+      display:block;
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.10);
+    }
+
+    .row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .mini{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: 12px;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
+  <div class="wrap">
+    <div class="header">
+      <div class="title">
         <h1>Учёт прихода и ухода</h1>
-        
-        <form id="timesheetForm">
-            <div class="form-group">
-                <label for="employeeCode">Код сотрудника *</label>
-                <input 
-                    type="text" 
-                    id="employeeCode" 
-                    name="employeeCode" 
-                    required 
-                    placeholder="Введите код сотрудника"
-                    autocomplete="off"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="worksite">Участок (необязательно)</label>
-                <input 
-                    type="text" 
-                    id="worksite" 
-                    name="worksite" 
-                    placeholder="Например: Цех 1"
-                    autocomplete="off"
-                >
-            </div>
-
-            <div class="button-group">
-                <button type="button" id="btnIn" class="btn btn-in">
-                    Приход
-                </button>
-                <button type="button" id="btnOut" class="btn btn-out">
-                    Уход
-                </button>
-            </div>
-
-            <div id="status" class="status"></div>
-        </form>
+        <p class="sub">Сканируйте QR на участке, заполните данные и нажмите <b>ПРИХОД</b> или <b>УХОД</b>. Данные сохраняются в Google Таблицу.</p>
+      </div>
+      <div class="badge" id="envBadge">🟦 Онлайн-сервис</div>
     </div>
 
-    <script src="script.js"></script>
+    <div class="card">
+      <div class="card-inner">
+        <div class="grid">
+          <div>
+            <label for="employeeName">Фамилия и Имя сотрудника *</label>
+            <input id="employeeName" class="field" type="text" placeholder="Например: Иванов Иван" autocomplete="name" required />
+          </div>
+
+          <div>
+            <label for="employeeStatus">Статус *</label>
+            <select id="employeeStatus" class="field" required>
+              <option value="" selected disabled>Выберите</option>
+              <option value="Штат">Штат</option>
+              <option value="Аутсорсинг">Аутсорсинг</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="worksite">Участок *</label>
+            <select id="worksite" class="field" required>
+              <option value="" selected disabled>Выберите</option>
+              <option value="Склад">Склад</option>
+              <option value="Упаковка">Упаковка</option>
+              <option value="Производство">Производство</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnIn" type="button" class="btn-in">🟢 ПРИХОД</button>
+          <button id="btnOut" type="button" class="btn-out">🔴 УХОД</button>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="row">
+          <div class="pill">📍 Геолокация: <span id="geoState">ожидается</span></div>
+          <div class="mini" id="nowClock"></div>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="tip">
+          <div>⚠️</div>
+          <div>
+            <b>Важно:</b> если телефон спросит доступ к геолокации — нажмите «Разрешить».  
+            При слабом интернете попробуйте нажать кнопку ещё раз через 3–5 секунд.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
-
