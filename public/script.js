@@ -8,19 +8,40 @@ const btnOut = document.getElementById('btnOut');
 const statusBox = document.getElementById('status');
 const geoState = document.getElementById('geoState');
 const nowClock = document.getElementById('nowClock');
+const lastMarkEl = document.getElementById('lastMark');
+
+// === Автофокус на ФИО ===
+window.addEventListener('load', () => {
+  elName.focus();
+});
+
+// === Последняя отметка (храним в браузере) ===
+function loadLastMark() {
+  const saved = localStorage.getItem('lastMark');
+  if (saved) lastMarkEl.textContent = saved;
+}
+function saveLastMark(action) {
+  const now = new Date();
+  const time = now.toLocaleString('ru-RU', {
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).replace(',', '');
+  const text = `${action === 'IN' ? 'ПРИХОД' : 'УХОД'} — ${time}`;
+  lastMarkEl.textContent = text;
+  localStorage.setItem('lastMark', text);
+}
+loadLastMark();
 
 function setStatus(type, text) {
   statusBox.className = 'status ' + (type === 'ok' ? 'ok' : 'err');
   statusBox.textContent = text;
   statusBox.style.display = 'block';
 }
-
 function clearStatus() {
   statusBox.className = 'status';
   statusBox.textContent = '';
   statusBox.style.display = 'none';
 }
-
 function disableButtons(disabled) {
   btnIn.disabled = disabled;
   btnOut.disabled = disabled;
@@ -33,7 +54,7 @@ function isValid() {
   return { ok: true };
 }
 
-// Попробуем сразу запросить геолокацию (мягко, без блокировки)
+// === Геолокация ===
 let lastGeo = { latitude: '', longitude: '', accuracy: '' };
 
 function requestGeoSilently() {
@@ -60,10 +81,7 @@ function requestGeoSilently() {
 requestGeoSilently();
 
 async function getGeoForMark() {
-  // используем уже полученную, если есть
   if (lastGeo.latitude && lastGeo.longitude) return lastGeo;
-
-  // иначе попробуем запросить ещё раз (жёстче)
   if (!navigator.geolocation) return { latitude: '', longitude: '', accuracy: '' };
 
   geoState.textContent = 'запрос…';
@@ -88,16 +106,24 @@ async function getGeoForMark() {
   });
 }
 
+// === Антидубли (защита от повторного клика) ===
+let isSubmitting = false;
+
+// Если сотрудник случайно нажал два раза очень быстро — второй клик игнорируется
+// Плюс кнопки блокируются на время запроса.
 async function mark(action) {
+  if (isSubmitting) return;          // ✅ антидубли
+  isSubmitting = true;
+  disableButtons(true);
   clearStatus();
 
   const v = isValid();
   if (!v.ok) {
     setStatus('err', v.msg);
+    disableButtons(false);
+    isSubmitting = false;
     return;
   }
-
-  disableButtons(true);
 
   try {
     const geo = await getGeoForMark();
@@ -125,18 +151,20 @@ async function mark(action) {
       return;
     }
 
-    setStatus('ok', `✅ Отметка сохранена (${action === 'IN' ? 'ПРИХОД' : 'УХОД'}).`);
+    saveLastMark(action);
+    setStatus('ok', `✅ Отметка сохранена: ${action === 'IN' ? 'ПРИХОД' : 'УХОД'}.`);
   } catch (e) {
     setStatus('err', 'Ошибка сети или сервера. Попробуйте ещё раз.');
   } finally {
     disableButtons(false);
+    isSubmitting = false;           // ✅ снимаем блокировку
   }
 }
 
 btnIn.addEventListener('click', () => mark('IN'));
 btnOut.addEventListener('click', () => mark('OUT'));
 
-// Часы внизу (для спокойствия пользователей)
+// Часы внизу
 function tickClock() {
   const now = new Date();
   nowClock.textContent = now.toLocaleString('ru-RU', {
