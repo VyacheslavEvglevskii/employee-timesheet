@@ -36,6 +36,71 @@ const auth = new google.auth.JWT(
 
 const sheets = google.sheets({ version: 'v4', auth });
 
+// === Функции для работы с сотрудниками ===
+
+// Нормализация имени: убираем лишние пробелы, правильный регистр
+function normalizeName(name) {
+  if (!name) return '';
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')  // множественные пробелы → один
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Проверка валидности имени (минимум 2 слова, только буквы)
+function isValidName(name) {
+  if (!name) return false;
+  const normalized = normalizeName(name);
+  const words = normalized.split(' ').filter(w => w.length > 0);
+  // Минимум 2 слова (Фамилия Имя)
+  if (words.length < 2) return false;
+  // Только буквы (кириллица и латиница)
+  if (!/^[а-яёА-ЯЁa-zA-Z\s-]+$/.test(normalized)) return false;
+  return true;
+}
+
+// Добавление нового сотрудника (если его нет в списке)
+async function addEmployeeIfNew(employeeName) {
+  try {
+    const normalized = normalizeName(employeeName);
+    if (!isValidName(normalized)) {
+      console.log(`Имя не прошло валидацию: ${employeeName}`);
+      return false;
+    }
+
+    // Получаем текущий список
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Сотрудники!A:A'
+    });
+
+    const rows = response.data.values || [];
+    const existingNames = rows.map(row => normalizeName(row[0] || '').toLowerCase());
+
+    // Проверяем на дубль
+    if (existingNames.includes(normalized.toLowerCase())) {
+      console.log(`Сотрудник уже есть: ${normalized}`);
+      return false;
+    }
+
+    // Добавляем нового
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'Сотрудники!A:A',
+      valueInputOption: 'USER_ENTERED',
+      resource: { values: [[normalized]] }
+    });
+
+    console.log(`Добавлен новый сотрудник: ${normalized}`);
+    return true;
+  } catch (error) {
+    console.error('Ошибка при добавлении сотрудника:', error.message);
+    return false;
+  }
+}
+
 // GET /api/employees — получить список сотрудников для автокомплита
 app.get('/api/employees', async (req, res) => {
   try {
@@ -225,6 +290,12 @@ app.post('/api/mark', async (req, res) => {
       range: 'Events!A:I',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [row] }
+    });
+
+    // Автоматически добавляем нового сотрудника в список (если его там нет)
+    // Делаем асинхронно, не блокируем ответ
+    addEmployeeIfNew(employeeName).catch(err => {
+      console.error('Ошибка автодобавления сотрудника:', err.message);
     });
 
     res.json({ status: 'ok', message: 'Отметка сохранена', timestamp });
