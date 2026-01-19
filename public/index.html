@@ -94,6 +94,7 @@
     }
     button:active{ transform: translateY(1px); }
     button:disabled{ opacity:.6; cursor:not-allowed; }
+    .field:disabled{ opacity:.6; cursor:not-allowed; background: rgba(0,0,0,.35); }
 
     .btn-in{ background: linear-gradient(180deg, var(--green), var(--green2)); color:#07120b; }
     .btn-out{ background: linear-gradient(180deg, var(--red), var(--red2)); color:#fff; }
@@ -138,11 +139,56 @@
       border-color: rgba(239,68,68,.35);
       background: rgba(239,68,68,.10);
     }
+    .status.info{
+      display:block;
+      border-color: rgba(59,130,246,.35);
+      background: rgba(59,130,246,.10);
+    }
     .tip{
       display:flex; gap:10px; align-items:flex-start;
       color: var(--muted); font-size: 12px; line-height:1.45;
     }
     .tip b{ color:#fbbf24; font-weight: 800; }
+
+    /* Автокомплит */
+    .autocomplete-wrap{ position: relative; }
+    .autocomplete-list{
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #1e293b;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+    .autocomplete-list.show{ display: block; }
+    .autocomplete-item{
+      padding: 12px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 1px solid var(--line);
+      transition: background .1s;
+    }
+    .autocomplete-item:last-child{ border-bottom: none; }
+    .autocomplete-item:hover, .autocomplete-item.active{
+      background: rgba(59,130,246,.2);
+    }
+    .autocomplete-item .match{
+      color: #3b82f6;
+      font-weight: 700;
+    }
+    .autocomplete-new{
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: rgba(0,0,0,.2);
+    }
   </style>
 </head>
 <body>
@@ -158,9 +204,10 @@
     <div class="card">
       <div class="card-inner">
         <div class="grid">
-          <div>
+          <div class="autocomplete-wrap">
             <label for="employeeName">Фамилия и Имя сотрудника *</label>
-            <input id="employeeName" class="field" type="text" placeholder="Например: Иванов Иван" autocomplete="name" required />
+            <input id="employeeName" class="field" type="text" placeholder="Начните вводить фамилию..." autocomplete="off" required />
+            <div id="autocompleteList" class="autocomplete-list"></div>
           </div>
 
           <div>

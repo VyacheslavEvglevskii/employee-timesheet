@@ -10,10 +10,226 @@ const geoState = document.getElementById('geoState');
 const nowClock = document.getElementById('nowClock');
 const lastMarkEl = document.getElementById('lastMark');
 
+const autocompleteList = document.getElementById('autocompleteList');
+
+// === Список сотрудников для автокомплита ===
+let employeesList = [];
+let selectedIndex = -1;
+
+// === Состояние последней отметки сотрудника ===
+let currentLastAction = null;   // 'IN', 'OUT' или null
+let currentLastStatus = null;   // 'Штат', 'Аутсорсинг' или null
+let currentLastWorksite = null; // 'Склад', 'Упаковка', 'Производство' или null
+
+// === Загрузка списка сотрудников ===
+async function loadEmployees() {
+  try {
+    const resp = await fetch('/api/employees');
+    const data = await resp.json();
+    if (data.status === 'ok' && data.employees) {
+      employeesList = data.employees;
+      console.log(`Загружено ${employeesList.length} сотрудников`);
+    }
+  } catch (e) {
+    console.error('Ошибка загрузки списка сотрудников:', e);
+  }
+}
+
+// === Автокомплит ===
+function showAutocomplete(matches) {
+  if (matches.length === 0) {
+    autocompleteList.innerHTML = '<div class="autocomplete-new">💡 Новый сотрудник? Введите ФИО полностью</div>';
+    autocompleteList.classList.add('show');
+    return;
+  }
+  
+  const query = elName.value.trim().toLowerCase();
+  
+  autocompleteList.innerHTML = matches.map((name, idx) => {
+    // Подсветка совпадающей части
+    const lowerName = name.toLowerCase();
+    const matchStart = lowerName.indexOf(query);
+    let displayName = name;
+    if (matchStart >= 0 && query.length > 0) {
+      displayName = 
+        name.substring(0, matchStart) + 
+        '<span class="match">' + name.substring(matchStart, matchStart + query.length) + '</span>' +
+        name.substring(matchStart + query.length);
+    }
+    return `<div class="autocomplete-item" data-index="${idx}" data-name="${name}">${displayName}</div>`;
+  }).join('');
+  
+  autocompleteList.classList.add('show');
+  selectedIndex = -1;
+}
+
+function hideAutocomplete() {
+  autocompleteList.classList.remove('show');
+  selectedIndex = -1;
+}
+
+function selectEmployee(name) {
+  elName.value = name;
+  hideAutocomplete();
+  checkLastMark();
+}
+
+// Клик по элементу списка
+autocompleteList.addEventListener('click', (e) => {
+  const item = e.target.closest('.autocomplete-item');
+  if (item) {
+    selectEmployee(item.dataset.name);
+  }
+});
+
+// Навигация клавиатурой
+elName.addEventListener('keydown', (e) => {
+  const items = autocompleteList.querySelectorAll('.autocomplete-item');
+  
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+    updateActiveItem(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedIndex = Math.max(selectedIndex - 1, 0);
+    updateActiveItem(items);
+  } else if (e.key === 'Enter' && selectedIndex >= 0 && items[selectedIndex]) {
+    e.preventDefault();
+    selectEmployee(items[selectedIndex].dataset.name);
+  } else if (e.key === 'Escape') {
+    hideAutocomplete();
+  }
+});
+
+function updateActiveItem(items) {
+  items.forEach((item, idx) => {
+    item.classList.toggle('active', idx === selectedIndex);
+  });
+  if (items[selectedIndex]) {
+    items[selectedIndex].scrollIntoView({ block: 'nearest' });
+  }
+}
+
 // === Автофокус на ФИО ===
 window.addEventListener('load', () => {
+  loadEmployees(); // Загружаем список сотрудников
   elName.focus();
+  updateButtonStates(); // Изначально блокируем УХОД (нет отметок)
+  updateFieldsLock();   // Разблокируем поля изначально
 });
+
+// === Проверка последней отметки при изменении ФИО ===
+let checkTimeout = null;
+elName.addEventListener('input', () => {
+  const query = elName.value.trim().toLowerCase();
+  
+  // Показываем автокомплит при вводе 2+ символов
+  if (query.length >= 2 && employeesList.length > 0) {
+    const matches = employeesList.filter(name => 
+      name.toLowerCase().includes(query)
+    ).slice(0, 8); // Максимум 8 результатов
+    showAutocomplete(matches);
+  } else {
+    hideAutocomplete();
+  }
+  
+  // Debounce — ждём 500мс после последнего ввода для проверки отметки
+  clearTimeout(checkTimeout);
+  checkTimeout = setTimeout(() => {
+    checkLastMark();
+  }, 500);
+});
+
+// При потере фокуса
+elName.addEventListener('blur', () => {
+  // Небольшая задержка чтобы успел сработать клик по списку
+  setTimeout(() => {
+    hideAutocomplete();
+    clearTimeout(checkTimeout);
+    checkLastMark();
+  }, 150);
+});
+
+async function checkLastMark() {
+  const name = elName.value.trim();
+  if (!name) {
+    currentLastAction = null;
+    currentLastStatus = null;
+    currentLastWorksite = null;
+    updateButtonStates();
+    updateFieldsLock();
+    return;
+  }
+
+  try {
+    const resp = await fetch(`/api/last-mark?employeeName=${encodeURIComponent(name)}`);
+    const data = await resp.json();
+    
+    if (data.status === 'ok') {
+      currentLastAction = data.lastAction;
+      currentLastStatus = data.lastStatus;
+      currentLastWorksite = data.lastWorksite;
+      
+      updateButtonStates();
+      updateFieldsLock();
+      
+      // Показываем информацию о последней отметке
+      if (data.lastAction && data.timestamp) {
+        const actionText = data.lastAction === 'IN' ? 'ПРИХОД' : 'УХОД';
+        let infoText = `Последняя отметка: ${actionText} (${data.timestamp})`;
+        
+        // Если есть незакрытый ПРИХОД — показываем подсказку
+        if (data.lastAction === 'IN') {
+          infoText += `\nСтатус и участок заполнены автоматически.`;
+        }
+        setStatus('info', infoText);
+      }
+    }
+  } catch (e) {
+    console.error('Ошибка проверки последней отметки:', e);
+  }
+}
+
+// Автозаполнение и блокировка полей при незакрытом ПРИХОДЕ
+function updateFieldsLock() {
+  if (currentLastAction === 'IN' && currentLastStatus && currentLastWorksite) {
+    // Автозаполняем поля
+    elStatus.value = currentLastStatus;
+    elWorksite.value = currentLastWorksite;
+    
+    // Блокируем поля (нельзя менять при УХОДЕ)
+    elStatus.disabled = true;
+    elWorksite.disabled = true;
+  } else {
+    // Разблокируем поля
+    elStatus.disabled = false;
+    elWorksite.disabled = false;
+  }
+}
+
+function updateButtonStates() {
+  // Если последняя отметка IN — блокируем кнопку ПРИХОД
+  // Если последняя отметка OUT или null — блокируем кнопку УХОД
+  
+  if (currentLastAction === 'IN') {
+    btnIn.disabled = true;
+    btnIn.title = 'Вы уже отметили приход. Сначала отметьте уход.';
+    btnOut.disabled = false;
+    btnOut.title = '';
+  } else if (currentLastAction === 'OUT') {
+    btnIn.disabled = false;
+    btnIn.title = '';
+    btnOut.disabled = true;
+    btnOut.title = 'Вы уже отметили уход. Сначала отметьте приход.';
+  } else {
+    // Нет отметок — разрешён только ПРИХОД
+    btnIn.disabled = false;
+    btnIn.title = '';
+    btnOut.disabled = true;
+    btnOut.title = 'Сначала отметьте приход.';
+  }
+}
 
 // === Последняя отметка (храним в браузере) ===
 function loadLastMark() {
@@ -33,7 +249,12 @@ function saveLastMark(action) {
 loadLastMark();
 
 function setStatus(type, text) {
-  statusBox.className = 'status ' + (type === 'ok' ? 'ok' : 'err');
+  let className = 'status ';
+  if (type === 'ok') className += 'ok';
+  else if (type === 'info') className += 'info';
+  else className += 'err';
+  
+  statusBox.className = className;
   statusBox.textContent = text;
   statusBox.style.display = 'block';
 }
@@ -43,8 +264,14 @@ function clearStatus() {
   statusBox.style.display = 'none';
 }
 function disableButtons(disabled) {
-  btnIn.disabled = disabled;
-  btnOut.disabled = disabled;
+  if (disabled) {
+    // Блокируем обе кнопки на время запроса
+    btnIn.disabled = true;
+    btnOut.disabled = true;
+  } else {
+    // Восстанавливаем состояние по последней отметке
+    updateButtonStates();
+  }
 }
 
 function isValid() {
@@ -153,6 +380,20 @@ async function mark(action) {
 
     saveLastMark(action);
     setStatus('ok', `✅ Отметка сохранена: ${action === 'IN' ? 'ПРИХОД' : 'УХОД'}.`);
+    
+    // Обновляем состояние после успешной отметки
+    currentLastAction = action;
+    if (action === 'IN') {
+      // Запоминаем статус и участок при ПРИХОДЕ
+      currentLastStatus = elStatus.value;
+      currentLastWorksite = elWorksite.value;
+    } else {
+      // При УХОДЕ сбрасываем — можно выбирать заново
+      currentLastStatus = null;
+      currentLastWorksite = null;
+    }
+    updateButtonStates();
+    updateFieldsLock();
   } catch (e) {
     setStatus('err', 'Ошибка сети или сервера. Попробуйте ещё раз.');
   } finally {

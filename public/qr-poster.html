@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR-код для отметки — FORSAL</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    
+    :root {
+      --blue: #0000FF;
+      --green: #00D26A;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    
+    .poster {
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      text-align: center;
+    }
+    
+    /* Логотип FORSAL */
+    .logo {
+      margin-bottom: 30px;
+    }
+    .logo-text {
+      font-size: 72px;
+      font-weight: 900;
+      letter-spacing: 12px;
+    }
+    .logo-f, .logo-r, .logo-s, .logo-a, .logo-l { color: var(--blue); }
+    .logo-o { color: var(--green); }
+    
+    /* Заголовок */
+    .title {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+    }
+    
+    .subtitle {
+      font-size: 18px;
+      color: #64748b;
+      margin-bottom: 40px;
+    }
+    
+    /* QR-код */
+    .qr-container {
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+      border-radius: 24px;
+      padding: 32px;
+      display: inline-block;
+      margin-bottom: 40px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    
+    #qrImage {
+      display: block;
+      width: 280px;
+      height: 280px;
+    }
+    
+    /* Инструкции */
+    .instructions {
+      text-align: left;
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 24px 32px;
+      margin-bottom: 30px;
+    }
+    
+    .instructions-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    
+    .step:last-child {
+      margin-bottom: 0;
+    }
+    
+    .step-number {
+      width: 32px;
+      height: 32px;
+      background: var(--blue);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    
+    .step-text {
+      font-size: 16px;
+      color: #334155;
+      line-height: 1.5;
+      padding-top: 4px;
+    }
+    
+    .step-text strong {
+      color: var(--blue);
+    }
+    
+    /* Футер */
+    .footer {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    
+    /* Настройки (не печатаются) */
+    .settings {
+      margin-top: 40px;
+      padding: 20px;
+      background: #f1f5f9;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 100%;
+    }
+    
+    .settings label {
+      display: block;
+      font-size: 13px;
+      color: #475569;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .settings input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .settings input:focus {
+      outline: none;
+      border-color: var(--blue);
+    }
+    
+    .settings button {
+      width: 100%;
+      padding: 12px;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .settings button:hover {
+      background: #0000cc;
+    }
+    
+    /* Печать */
+    @media print {
+      body {
+        padding: 20px;
+      }
+      .settings {
+        display: none !important;
+      }
+      .qr-container {
+        box-shadow: none;
+        border: 2px solid #e2e8f0;
+      }
+      .poster {
+        max-width: 100%;
+      }
+    }
+    
+    @page {
+      size: A4;
+      margin: 1cm;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+    <!-- Логотип -->
+    <div class="logo">
+      <span class="logo-text">
+        <span class="logo-f">F</span><span class="logo-o">O</span><span class="logo-r">R</span><span class="logo-s">S</span><span class="logo-a">A</span><span class="logo-l">L</span>
+      </span>
+    </div>
+    
+    <!-- Заголовок -->
+    <h1 class="title" style="color: #ef4444;">📱 Отметка прихода и ухода на смену</h1>
+    <p class="subtitle">Отсканируйте QR-код камерой телефона</p>
+    
+    <!-- QR-код -->
+    <div class="qr-container">
+      <img id="qrImage" alt="QR-код" src="">
+    </div>
+    
+    <!-- Инструкции -->
+    <div class="instructions">
+      <div class="instructions-title">
+        📋 Как отметиться:
+      </div>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-text">Откройте <strong>камеру</strong> телефона и наведите на QR-код</div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-text">Перейдите по ссылке, введите <strong>Фамилию и Имя</strong>, выберите статус и участок</div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-text">Нажмите <strong style="color:#22c55e;">ПРИХОД</strong> в начале смены или <strong style="color:#ef4444;">УХОД</strong> в конце</div>
+      </div>
+    </div>
+    
+    <!-- Футер -->
+    <div class="footer">
+      При проблемах обратитесь к руководителю участка
+    </div>
+  </div>
+  
+  <!-- Настройки URL (не печатаются) -->
+  <div class="settings">
+    <label>URL вашего приложения:</label>
+    <input type="text" id="appUrl" placeholder="https://employee-timesheet-xxx.run.app">
+    <button onclick="updateQR()">Обновить QR-код</button>
+    <button onclick="window.print()" style="margin-top:8px; background:#22c55e;">🖨️ Печать постера</button>
+  </div>
+
+  <script>
+    // Определяем URL
+    let appUrl = window.location.origin;
+    if (appUrl.includes('localhost') || appUrl.includes('file://')) {
+      appUrl = 'https://your-app.run.app';
+    }
+    
+    document.getElementById('appUrl').value = appUrl;
+    
+    function generateQR(url) {
+      // Используем QR Server API для генерации QR
+      const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(url);
+      document.getElementById('qrImage').src = qrApiUrl;
+    }
+    
+    function updateQR() {
+      const url = document.getElementById('appUrl').value.trim();
+      if (url) {
+        generateQR(url);
+      } else {
+        alert('Введите URL приложения');
+      }
+    }
+    
+    // Генерируем при загрузке
+    generateQR(appUrl);
+  </script>
+</body>
+</html>
