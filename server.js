@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { google } = require('googleapis');
 const path = require('path');
+const msal = require('@azure/msal-node');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,139 @@ const auth = new google.auth.JWT(
 );
 
 const sheets = google.sheets({ version: 'v4', auth });
+
+// === Microsoft Graph API (Excel в OneDrive) ===
+const MS_CLIENT_ID = process.env.MS_CLIENT_ID;
+const MS_TENANT_ID = process.env.MS_TENANT_ID;
+const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET;
+const MS_SHARE_URL = process.env.MS_SHARE_URL; // Ссылка на Excel файл
+
+let msalClient = null;
+if (MS_CLIENT_ID && MS_TENANT_ID && MS_CLIENT_SECRET) {
+  msalClient = new msal.ConfidentialClientApplication({
+    auth: {
+      clientId: MS_CLIENT_ID,
+      authority: `https://login.microsoftonline.com/${MS_TENANT_ID}`,
+      clientSecret: MS_CLIENT_SECRET
+    }
+  });
+  console.log('Microsoft Graph API настроен');
+} else {
+  console.log('Microsoft Graph API не настроен (отсутствуют переменные MS_*)');
+}
+
+// Получение токена для Graph API
+async function getMsToken() {
+  if (!msalClient) return null;
+  try {
+    const result = await msalClient.acquireTokenByClientCredential({
+      scopes: ['https://graph.microsoft.com/.default']
+    });
+    return result?.accessToken;
+  } catch (error) {
+    console.error('Ошибка получения MS токена:', error.message);
+    return null;
+  }
+}
+
+// Конвертация share URL в driveItem path
+function getShareId(shareUrl) {
+  // Кодируем URL в base64 и форматируем для Graph API
+  const base64 = Buffer.from(shareUrl).toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `u!${base64}`;
+}
+
+// Синхронизация записи в Excel
+async function syncToExcel(rowData) {
+  if (!msalClient || !MS_SHARE_URL) {
+    return; // Excel не настроен
+  }
+
+  try {
+    const token = await getMsToken();
+    if (!token) {
+      console.error('Не удалось получить токен для Excel');
+      return;
+    }
+
+    const shareId = getShareId(MS_SHARE_URL);
+    
+    // Получаем информацию о файле через share link
+    const driveItemUrl = `https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem`;
+    
+    const itemResponse = await fetch(driveItemUrl, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!itemResponse.ok) {
+      const err = await itemResponse.text();
+      console.error('Ошибка получения файла Excel:', err);
+      return;
+    }
+    
+    const itemData = await itemResponse.json();
+    const driveId = itemData.parentReference?.driveId;
+    const itemId = itemData.id;
+
+    if (!driveId || !itemId) {
+      console.error('Не удалось получить driveId/itemId');
+      return;
+    }
+
+    // Добавляем строку в таблицу Excel (лист "Events")
+    const addRowUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/workbook/worksheets/Events/tables/EventsTable/rows`;
+    
+    const response = await fetch(addRowUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        values: [rowData]
+      })
+    });
+
+    if (response.ok) {
+      console.log('Данные синхронизированы в Excel');
+    } else {
+      // Если таблицы нет, пробуем добавить в диапазон
+      const rangeUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/workbook/worksheets/Events/range(address='A:I')/insert`;
+      
+      const rangeResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/workbook/worksheets/Events/usedRange`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (rangeResponse.ok) {
+        const rangeData = await rangeResponse.json();
+        const lastRow = (rangeData.rowCount || 1) + 1;
+        
+        const appendUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/workbook/worksheets/Events/range(address='A${lastRow}:I${lastRow}')`;
+        
+        const appendResponse = await fetch(appendUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            values: [rowData]
+          })
+        });
+        
+        if (appendResponse.ok) {
+          console.log('Данные добавлены в Excel (диапазон)');
+        } else {
+          console.error('Ошибка записи в Excel:', await appendResponse.text());
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка синхронизации с Excel:', error.message);
+  }
+}
 
 // === Функции для работы с сотрудниками ===
 
@@ -290,6 +424,11 @@ app.post('/api/mark', async (req, res) => {
       range: 'Events!A:I',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [row] }
+    });
+
+    // Синхронизация с Excel (асинхронно, не блокируем ответ)
+    syncToExcel(row).catch(err => {
+      console.error('Ошибка синхронизации Excel:', err.message);
     });
 
     // Автоматически добавляем нового сотрудника в список (если его там нет)
