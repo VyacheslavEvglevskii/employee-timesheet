@@ -183,6 +183,160 @@ async function readAllRows(sheetName) {
   return data.values || [];
 }
 
+// === Автозаполнение табеля ===
+
+// Месяцы на русском для сопоставления с датами в Excel
+const MONTHS_RU = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+// Форматирование даты как в Excel (например "20-янв")
+function formatDateForExcel(date) {
+  const d = date.getDate();
+  const m = MONTHS_RU[date.getMonth()];
+  return `${d}-${m}`;
+}
+
+// Проверка совпадения даты в ячейке с целевой датой
+function isDateMatch(cellValue, targetDate) {
+  if (!cellValue) return false;
+  
+  const cellStr = String(cellValue).trim().toLowerCase();
+  const day = targetDate.getDate();
+  const month = targetDate.getMonth(); // 0-11
+  const year = targetDate.getFullYear();
+  
+  // Формат "20-янв" или "20.янв"
+  const shortFormat = `${day}-${MONTHS_RU[month]}`;
+  if (cellStr === shortFormat || cellStr === shortFormat.replace('-', '.')) {
+    return true;
+  }
+  
+  // Формат "20.01.2026"
+  const fullFormat = `${day.toString().padStart(2, '0')}.${(month + 1).toString().padStart(2, '0')}.${year}`;
+  if (cellStr === fullFormat) {
+    return true;
+  }
+  
+  // Если ячейка содержит число (серийный номер даты Excel)
+  const numValue = parseFloat(cellValue);
+  if (!isNaN(numValue) && numValue > 40000 && numValue < 50000) {
+    // Конвертируем серийный номер Excel в дату
+    // Excel: 1 = 1 января 1900, но есть баг с 1900 високосным
+    const excelEpoch = new Date(1899, 11, 30); // 30 декабря 1899
+    const excelDate = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+    
+    if (excelDate.getDate() === day && 
+        excelDate.getMonth() === month && 
+        excelDate.getFullYear() === year) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Запись значения в конкретную ячейку
+async function writeCellValue(sheetName, cellAddress, value) {
+  const token = await getToken();
+  const baseUrl = await getExcelBaseUrl();
+  
+  const url = `${baseUrl}/${encodeURIComponent(sheetName)}/range(address='${cellAddress}')`;
+  
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values: [[value]] })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Ошибка записи в ячейку: ${err}`);
+  }
+  
+  return true;
+}
+
+// Конвертация номера колонки в букву (1=A, 2=B, ... 27=AA)
+function columnToLetter(col) {
+  let letter = '';
+  while (col > 0) {
+    const rem = (col - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    col = Math.floor((col - 1) / 26);
+  }
+  return letter;
+}
+
+// Автозаполнение табеля при отметке прихода
+async function markAttendanceInSchedule(employeeName, worksite) {
+  try {
+    // Лист = участок (Склад, Упаковка, Производство)
+    const sheetName = worksite;
+    
+    // Читаем данные листа
+    const rows = await readAllRows(sheetName);
+    if (!rows || rows.length < 2) {
+      console.log(`Лист "${sheetName}" пустой или не найден`);
+      return false;
+    }
+
+    // Ищем ФИО в колонке A (нормализуем для сравнения)
+    const nameToFind = employeeName.trim().toLowerCase();
+    let rowIndex = -1;
+    
+    for (let i = 1; i < rows.length; i++) { // Начинаем с 1, пропускаем заголовок
+      const cellName = (rows[i][0] || '').toString().trim().toLowerCase();
+      if (cellName === nameToFind) {
+        rowIndex = i + 1; // Excel строки с 1, а не с 0
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      console.log(`Сотрудник "${employeeName}" не найден на листе "${sheetName}"`);
+      return false;
+    }
+
+    // Ищем сегодняшнюю дату в строке 1
+    const today = new Date();
+    // Устанавливаем московское время
+    const moscowOffset = 3 * 60; // UTC+3
+    const localOffset = today.getTimezoneOffset();
+    const moscowTime = new Date(today.getTime() + (moscowOffset + localOffset) * 60 * 1000);
+    
+    const todayFormatted = formatDateForExcel(moscowTime);
+    const headerRow = rows[0];
+    let colIndex = -1;
+
+    for (let j = 1; j < headerRow.length; j++) { // Начинаем с 1, пропускаем колонку A
+      if (isDateMatch(headerRow[j], moscowTime)) {
+        colIndex = j + 1; // Excel колонки с 1
+        break;
+      }
+    }
+
+    if (colIndex === -1) {
+      console.log(`Дата "${todayFormatted}" (${moscowTime.toISOString().split('T')[0]}) не найдена в заголовке листа "${sheetName}"`);
+      return false;
+    }
+
+    // Формируем адрес ячейки (например "F5")
+    const cellAddress = `${columnToLetter(colIndex)}${rowIndex}`;
+    
+    // Записываем значение "1" (отметка присутствия)
+    await writeCellValue(sheetName, cellAddress, 1);
+    
+    console.log(`Табель обновлён: ${sheetName}!${cellAddress} = 1 (${employeeName}, ${todayFormatted})`);
+    return true;
+
+  } catch (error) {
+    console.error(`Ошибка обновления табеля: ${error.message}`);
+    return false;
+  }
+}
+
 // === Функции для работы с сотрудниками ===
 
 // Нормализация имени: убираем лишние пробелы, правильный регистр
@@ -391,6 +545,13 @@ app.post('/api/mark', async (req, res) => {
     // Записываем в Excel
     const rowNum = await appendToExcel('Events', row);
     console.log(`Записано в Excel, строка ${rowNum}`);
+
+    // При ПРИХОДЕ — обновляем табель на соответствующем листе
+    if (action === 'IN') {
+      markAttendanceInSchedule(employeeName, worksite).catch(err => {
+        console.error('Ошибка обновления табеля:', err.message);
+      });
+    }
 
     // Добавляем сотрудника если новый (асинхронно)
     addEmployeeIfNew(employeeName).catch(err => {
