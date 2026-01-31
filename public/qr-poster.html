@@ -70,8 +70,8 @@
     
     #qrImage {
       display: block;
-      width: 280px;
-      height: 280px;
+      width: 350px;
+      height: 350px;
     }
     
     /* Инструкции */
@@ -237,12 +237,29 @@
       
       <div class="step">
         <div class="step-number">2</div>
-        <div class="step-text">Перейдите по ссылке, введите <strong>Фамилию и Имя</strong>, выберите статус и участок</div>
+        <div class="step-text">Введите <strong>Фамилию и Имя</strong> (можно выбрать из списка)</div>
       </div>
       
       <div class="step">
         <div class="step-number">3</div>
-        <div class="step-text">Нажмите <strong style="color:#22c55e;">ПРИХОД</strong> в начале смены или <strong style="color:#ef4444;">УХОД</strong> в конце</div>
+        <div class="step-text">Выберите <strong>Статус</strong> (Штат / Аутсорсинг) и <strong>Участок</strong></div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-text">Для <strong>Упаковки</strong> — выберите <strong>Смену</strong> (День / Ночь)</div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">5</div>
+        <div class="step-text">Нажмите <strong style="color:#22c55e;">🟢 ПРИХОД</strong> в начале смены или <strong style="color:#ef4444;">🔴 УХОД</strong> в конце</div>
+      </div>
+    </div>
+    
+    <!-- Примечание -->
+    <div style="background: #fef3c7; border-radius: 12px; padding: 16px 20px; margin-bottom: 30px; text-align: left;">
+      <div style="font-size: 14px; color: #92400e; line-height: 1.5;">
+        ⚠️ <strong>Важно:</strong> При УХОДЕ статус и участок заполняются автоматически — не меняйте их!
       </div>
     </div>
     
@@ -271,7 +288,7 @@
     
     function generateQR(url) {
       // Используем QR Server API для генерации QR
-      const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(url);
+      const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=' + encodeURIComponent(url);
       document.getElementById('qrImage').src = qrApiUrl;
     }
     

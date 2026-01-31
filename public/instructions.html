@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Инструкция — Учёт прихода и ухода</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #0f172a;
+      --text: #e5e7eb;
+      --muted: #a7b0c0;
+      --line: rgba(255,255,255,.08);
+      --accent: #3b82f6;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(800px 400px at 30% 0%, rgba(59,130,246,.12), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.6;
+    }
+    .wrap { max-width: 700px; margin: 0 auto; }
+    
+    h1 {
+      font-size: 28px;
+      margin: 0 0 8px;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 28px;
+    }
+    
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    
+    h2 {
+      font-size: 18px;
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .num {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      background: rgba(0,0,0,.25);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+    .step-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .step-text {
+      flex: 1;
+    }
+    .step-text strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+    .step-text span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    
+    .highlight {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .highlight.green {
+      background: rgba(34,197,94,.2);
+      color: var(--green);
+    }
+    .highlight.red {
+      background: rgba(239,68,68,.2);
+      color: var(--red);
+    }
+    
+    .warning {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(251,191,36,.08);
+      border: 1px solid rgba(251,191,36,.25);
+      border-radius: 14px;
+      margin-top: 16px;
+    }
+    .warning-icon { font-size: 22px; }
+    .warning-text { color: var(--yellow); font-size: 14px; }
+    .warning-text b { color: #fcd34d; }
+    
+    .faq {
+      margin-top: 8px;
+    }
+    .faq-item {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q {
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .faq-a {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 14px;
+      margin-top: 20px;
+      padding: 10px 16px;
+      background: rgba(59,130,246,.1);
+      border-radius: 10px;
+      transition: background .15s;
+    }
+    .back-link:hover {
+      background: rgba(59,130,246,.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📋 Инструкция для сотрудников</h1>
+    <p class="subtitle">Как отмечать приход и уход на работу</p>
+
+    <div class="card">
+      <h2><span class="num">1</span> Как отметиться</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon">📱</div>
+          <div class="step-text">
+            <strong>Отсканируйте QR-код</strong>
+            <span>На участке висит постер с QR-кодом. Наведите камеру телефона — откроется страница отметки.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon">✍️</div>
+          <div class="step-text">
+            <strong>Введите своё ФИО</strong>
+            <span>Начните вводить фамилию — система подскажет варианты. Выберите себя из списка или введите полностью.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon">📋</div>
+          <div class="step-text">
+            <strong>Выберите статус и участок</strong>
+            <span><b>Статус:</b> Штат или Аутсорсинг. <b>Участок:</b> где вы работаете сегодня.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon">✅</div>
+          <div class="step-text">
+            <strong>Нажмите кнопку</strong>
+            <span>
+              <span class="highlight green">🟢 ПРИХОД</span> — когда пришли на работу<br>
+              <span class="highlight red">🔴 УХОД</span> — когда уходите
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="warning">
+        <div class="warning-icon">📍</div>
+        <div class="warning-text">
+          <b>Геолокация обязательна!</b> Когда телефон спросит разрешение на определение местоположения — нажмите <b>«Разрешить»</b>. Без этого отметка не сохранится.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="num">2</span> Важные правила</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon">🔄</div>
+          <div class="step-text">
+            <strong>Чередуйте приход и уход</strong>
+            <span>Нельзя отметить два прихода подряд или два ухода. Сначала ПРИХОД, потом УХОД.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon">🏢</div>
+          <div class="step-text">
+            <strong>Участок должен совпадать</strong>
+            <span>При уходе выбирайте тот же участок, что и при приходе.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon">⏳</div>
+          <div class="step-text">
+            <strong>Не нажимайте повторно</strong>
+            <span>При медленном интернете подождите 5-10 секунд. Система покажет результат.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="num">?</span> Частые вопросы</h2>
+      <div class="faq">
+        <div class="faq-item">
+          <div class="faq-q">Меня нет в списке, что делать?</div>
+          <div class="faq-a">Введите ФИО полностью вручную (Фамилия Имя Отчество). Система добавит вас автоматически.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">Ошибка «Нельзя отметить ПРИХОД повторно»</div>
+          <div class="faq-a">Вы уже отмечали приход сегодня. Сначала отметьте УХОД, потом снова ПРИХОД.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">Не работает геолокация</div>
+          <div class="faq-a">Проверьте настройки телефона: включите GPS и разрешите доступ к местоположению для браузера.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">Забыл отметить уход вчера</div>
+          <div class="faq-a">Обратитесь к руководителю — он исправит данные в таблице вручную.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">Что такое «Смена» на Упаковке?</div>
+          <div class="faq-a">Если вы работаете на участке Упаковка, выберите смену: День или Ночь. Это нужно для правильного учёта.</div>
+        </div>
+      </div>
+    </div>
+
+    <a href="/" class="back-link">← Вернуться к отметке</a>
+  </div>
+</body>
+</html>
+
