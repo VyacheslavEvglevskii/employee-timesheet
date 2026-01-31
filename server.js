@@ -270,10 +270,19 @@ function columnToLetter(col) {
 }
 
 // Автозаполнение табеля при отметке прихода
-async function markAttendanceInSchedule(employeeName, worksite) {
+async function markAttendanceInSchedule(employeeName, worksite, shift) {
   try {
-    // Лист = участок (Склад, Упаковка, Производство)
-    const sheetName = worksite;
+    // Определяем название листа
+    let sheetName = worksite;
+    
+    // Для Упаковки — выбираем лист в зависимости от смены
+    if (worksite === 'Упаковка' && shift) {
+      if (shift === 'День') {
+        sheetName = 'Упаковка день';
+      } else if (shift === 'Ночь') {
+        sheetName = 'Упаковка ночь';
+      }
+    }
     
     // Читаем данные листа
     const rows = await readAllRows(sheetName);
@@ -295,7 +304,8 @@ async function markAttendanceInSchedule(employeeName, worksite) {
     }
 
     if (rowIndex === -1) {
-      console.log(`Сотрудник "${employeeName}" не найден на листе "${sheetName}"`);
+      const shiftInfo = shift ? ` (смена: ${shift})` : '';
+      console.log(`Сотрудник "${employeeName}"${shiftInfo} не найден на листе "${sheetName}"`);
       return false;
     }
 
@@ -328,7 +338,8 @@ async function markAttendanceInSchedule(employeeName, worksite) {
     // Записываем значение "1" (отметка присутствия)
     await writeCellValue(sheetName, cellAddress, 1);
     
-    console.log(`Табель обновлён: ${sheetName}!${cellAddress} = 1 (${employeeName}, ${todayFormatted})`);
+    const shiftInfo = shift ? `, смена: ${shift}` : '';
+    console.log(`Табель обновлён: ${sheetName}!${cellAddress} = 1 (${employeeName}${shiftInfo}, ${todayFormatted})`);
     return true;
 
   } catch (error) {
@@ -427,6 +438,7 @@ app.get('/api/last-mark', async (req, res) => {
           lastAction: row[3] || null,
           lastStatus: row[2] || null,
           lastWorksite: row[4] || null,
+          lastShift: row[9] || null,  // Колонка J - смена
           timestamp: row[0] || null
         });
       }
@@ -437,6 +449,7 @@ app.get('/api/last-mark', async (req, res) => {
       lastAction: null,
       lastStatus: null,
       lastWorksite: null,
+      lastShift: null,
       timestamp: null
     });
 
@@ -452,7 +465,7 @@ app.get('/api/last-mark', async (req, res) => {
 // POST /api/mark — отметка прихода/ухода
 app.post('/api/mark', async (req, res) => {
   try {
-    const { employeeName, employeeStatus, action, worksite, latitude, longitude, accuracy } = req.body;
+    const { employeeName, employeeStatus, action, worksite, shift, latitude, longitude, accuracy } = req.body;
 
     if (!employeeName || !employeeStatus || !action || !worksite) {
       return res.status(400).json({
@@ -539,7 +552,8 @@ app.post('/api/mark', async (req, res) => {
       'web',
       latitude !== undefined ? String(latitude) : '',
       longitude !== undefined ? String(longitude) : '',
-      accuracy !== undefined ? String(accuracy) : ''
+      accuracy !== undefined ? String(accuracy) : '',
+      shift || ''  // Колонка J - смена (для Упаковки)
     ];
 
     // Записываем в Excel
@@ -548,7 +562,7 @@ app.post('/api/mark', async (req, res) => {
 
     // При ПРИХОДЕ — обновляем табель на соответствующем листе
     if (action === 'IN') {
-      markAttendanceInSchedule(employeeName, worksite).catch(err => {
+      markAttendanceInSchedule(employeeName, worksite, shift).catch(err => {
         console.error('Ошибка обновления табеля:', err.message);
       });
     }

@@ -1,6 +1,8 @@
 const elName = document.getElementById('employeeName');
 const elStatus = document.getElementById('employeeStatus');
 const elWorksite = document.getElementById('worksite');
+const elShift = document.getElementById('shift');
+const elShiftContainer = document.getElementById('shiftContainer');
 
 const btnIn = document.getElementById('btnIn');
 const btnOut = document.getElementById('btnOut');
@@ -20,6 +22,22 @@ let selectedIndex = -1;
 let currentLastAction = null;   // 'IN', 'OUT' или null
 let currentLastStatus = null;   // 'Штат', 'Аутсорсинг' или null
 let currentLastWorksite = null; // 'Склад', 'Упаковка', 'Производство' или null
+let currentLastShift = null;    // 'День', 'Ночь' или null
+
+// === Показ/скрытие выбора смены ===
+function updateShiftVisibility() {
+  const worksite = elWorksite.value;
+  if (worksite === 'Упаковка') {
+    elShiftContainer.style.display = 'block';
+    elShift.required = true;
+  } else {
+    elShiftContainer.style.display = 'none';
+    elShift.required = false;
+    elShift.value = '';
+  }
+}
+
+elWorksite.addEventListener('change', updateShiftVisibility);
 
 // === Загрузка списка сотрудников ===
 async function loadEmployees() {
@@ -157,6 +175,7 @@ async function checkLastMark() {
     currentLastAction = null;
     currentLastStatus = null;
     currentLastWorksite = null;
+    currentLastShift = null;
     updateButtonStates();
     updateFieldsLock();
     return;
@@ -170,6 +189,7 @@ async function checkLastMark() {
       currentLastAction = data.lastAction;
       currentLastStatus = data.lastStatus;
       currentLastWorksite = data.lastWorksite;
+      currentLastShift = data.lastShift || null;
       
       updateButtonStates();
       updateFieldsLock();
@@ -197,6 +217,13 @@ function updateFieldsLock() {
     // Автозаполняем поля
     elStatus.value = currentLastStatus;
     elWorksite.value = currentLastWorksite;
+    updateShiftVisibility(); // Показать/скрыть смену
+    
+    // Автозаполняем смену если была
+    if (currentLastShift && currentLastWorksite === 'Упаковка') {
+      elShift.value = currentLastShift;
+      elShift.disabled = true;
+    }
     
     // Блокируем поля (нельзя менять при УХОДЕ)
     elStatus.disabled = true;
@@ -205,6 +232,7 @@ function updateFieldsLock() {
     // Разблокируем поля
     elStatus.disabled = false;
     elWorksite.disabled = false;
+    elShift.disabled = false;
   }
 }
 
@@ -278,6 +306,7 @@ function isValid() {
   if (!elName.value.trim()) return { ok: false, msg: 'Введите «Фамилия и Имя сотрудника».' };
   if (!elStatus.value) return { ok: false, msg: 'Выберите «Статус».' };
   if (!elWorksite.value) return { ok: false, msg: 'Выберите «Участок».' };
+  if (elWorksite.value === 'Упаковка' && !elShift.value) return { ok: false, msg: 'Выберите «Смену» (День/Ночь).' };
   return { ok: true };
 }
 
@@ -360,6 +389,7 @@ async function mark(action) {
       employeeStatus: elStatus.value,
       action,
       worksite: elWorksite.value,
+      shift: elWorksite.value === 'Упаковка' ? elShift.value : '',
       latitude: geo.latitude,
       longitude: geo.longitude,
       accuracy: geo.accuracy
@@ -384,13 +414,15 @@ async function mark(action) {
     // Обновляем состояние после успешной отметки
     currentLastAction = action;
     if (action === 'IN') {
-      // Запоминаем статус и участок при ПРИХОДЕ
+      // Запоминаем статус, участок и смену при ПРИХОДЕ
       currentLastStatus = elStatus.value;
       currentLastWorksite = elWorksite.value;
+      currentLastShift = elWorksite.value === 'Упаковка' ? elShift.value : null;
     } else {
       // При УХОДЕ сбрасываем — можно выбирать заново
       currentLastStatus = null;
       currentLastWorksite = null;
+      currentLastShift = null;
     }
     updateButtonStates();
     updateFieldsLock();
